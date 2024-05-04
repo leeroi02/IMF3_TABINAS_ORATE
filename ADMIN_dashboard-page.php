@@ -167,7 +167,30 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
                 } else {
                     echo "<p>No Questions to display.</p>";
                 }
-            }
+            } else if ($view === 'female_records') {
+                  echo "<h2>Female User Records</h2>";
+                  $sql = $search ? "SELECT * FROM tbluserprofile WHERE (firstname LIKE '%$search%' OR lastname LIKE '%$search%') AND gender = 'Female'" : "SELECT * FROM tbluserprofile WHERE gender = 'Female'";
+                  $result = $connection->query($sql);
+
+                  if ($result && $result->num_rows > 0) {
+                      echo "<table>";
+                      echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Birthdate</th><th>Actions</th></tr>";
+                      while ($row = $result->fetch_assoc()) {
+                          echo "<tr><form method='POST'>";
+                          echo "<td>" . htmlspecialchars($row["userid"]) . "<input type='hidden' name='id' value='" . $row["userid"] . "'><input type='hidden' name='type' value='user'></td>";
+                          echo "<td><input type='text' name='firstname' value='" . htmlspecialchars($row["firstname"]) . "'></td>";
+                          echo "<td><input type='text' name='lastname' value='" . htmlspecialchars($row["lastname"]) . "'></td>";
+                          echo "<td><input type='text' name='gender' value='" . htmlspecialchars($row["gender"]) . "' readonly></td>";
+                          echo "<td><input type='date' name='birthdate' value='" . htmlspecialchars($row["birthdate"]) . "'></td>";
+                          echo "<td><button type='submit' name='update'>Update</button>
+                                  <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                          echo "</form></tr>";
+                      }
+                      echo "</table>";
+                  } else {
+                      echo "<p>No female user records found.</p>";
+                  }
+              }
             ?>
         </div>
     </div>
