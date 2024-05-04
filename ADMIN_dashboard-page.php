@@ -33,7 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $connection->prepare($sql);
             $stmt->bind_param("iss", $_POST['UserID'], $_POST['QuestionText'], $id);
             $redirectType = 'questions';
-        }
+        } else if ($_POST['type'] === 'female_records') {
+           $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ?, birthdate = ? WHERE userid = ?";
+           $stmt = $connection->prepare($sql);
+           $stmt->bind_param("ssssi", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $_POST['birthdate'], $id);
+           $redirectType = 'records';
+       }
         $stmt->execute();
         $stmt->close();
         header("Location: ADMIN_dashboard-page.php?view=" . $redirectType);
