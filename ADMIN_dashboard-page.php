@@ -17,98 +17,63 @@ if (isset($_GET['logout'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update'])) {
-        $id = intval($_POST['id']);
-        if ($_POST['type'] === 'user') {
-            $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ?, birthdate = ? WHERE userid = ?";
-            $stmt = $connection->prepare($sql);
-            $stmt->bind_param("ssssi", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $_POST['birthdate'], $id);
-            $redirectType = 'records';
-        } elseif ($_POST['type'] === 'answer') {
-            $sql = "UPDATE answers SET UserID = ?, QuestionID = ?, AnswerText = ? WHERE AnswerID = ?";
-            $stmt = $connection->prepare($sql);
-            $stmt->bind_param("iisi", $_POST['UserID'], $_POST['QuestionID'], $_POST['AnswerText'], $id);
-            $redirectType = 'answers';
-        } elseif ($_POST['type'] === 'question') {
-            $sql = "UPDATE tblquestion SET UserID = ?, QuestionText = ? WHERE QuestionID = ?";
-            $stmt = $connection->prepare($sql);
-            $stmt->bind_param("iss", $_POST['UserID'], $_POST['QuestionText'], $id);
-            $redirectType = 'questions';
-        } else if ($_POST['type'] === 'female_records') {
-           $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ? WHERE userid = ?";
-           $stmt = $connection->prepare($sql);
-           $stmt->bind_param("ssss", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $id);
-           $redirectType = 'records';
-        } else if ($_POST['type'] === 'male_records') {
-           $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ? WHERE userid = ?";
-           $stmt = $connection->prepare($sql);
-           $stmt->bind_param("ssss", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $id);
-           $redirectType = 'records';
-       } else if ($_POST['type'] === 'other_gender_records') {
-           $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ? WHERE userid = ?";
-           $stmt = $connection->prepare($sql);
-           $stmt->bind_param("ssss", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $id);
-           $redirectType = 'records';
-       } elseif ($view === 'QnA_reports') {
-             echo "<h2>Question and Answer Reports (May 4)</h2>";
+        echo "<script>
+                if (confirmUpdate()) {
+                    document.getElementById('messageBox').style.display = 'block';
+                }
+              </script>";
 
-             $startOfDay = date('Y-m-d 00:00:00', strtotime('2024-05-04'));
-             $endOfDay = date('Y-m-d 23:59:59', strtotime('2024-05-04'));
-
-             $sql = "SELECT COUNT(DISTINCT a.UserID) AS total_users
-                     FROM answers a
-                     LEFT JOIN tblquestion q ON a.QuestionID = q.QuestionID
-                     WHERE (a.Timestamp >= ? AND a.Timestamp <= ?)
-                        OR (q.Timestamp >= ? AND q.Timestamp <= ?)";
-
-             $stmt = $connection->prepare($sql);
-
-             $stmt->bind_param("ssss", $startOfDay, $endOfDay, $startOfDay, $endOfDay);
-
-             $stmt->execute();
-
-             $result = $stmt->get_result();
-
-             if ($result) {
-                 if ($result->num_rows > 0) {
-                     $row = $result->fetch_assoc();
-                     $totalUsers = $row['total_users'];
-
-                     echo "<p>Total users who submitted an answer or question on May 4th: $totalUsers</p>";
-                 } else {
-                     echo "<p>No users submitted answers or questions on May 4th.</p>";
-                 }
-             } else {
-                 echo "<p>Error retrieving data from the database.</p>";
-             }
-
-             $stmt->close();
-         }
-
-
-
-        $stmt->execute();
-        $stmt->close();
-        header("Location: ADMIN_dashboard-page.php?view=" . $redirectType);
-        exit();
+        if (confirmUpdate()) {
+            $id = intval($_POST['id']);
+            if ($_POST['type'] === 'user') {
+                $sql = "UPDATE tbluserprofile SET firstname = ?, lastname = ?, gender = ?, birthdate = ? WHERE userid = ?";
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param("ssssi", $_POST['firstname'], $_POST['lastname'], $_POST['gender'], $_POST['birthdate'], $id);
+                $stmt->execute();
+                $stmt->close();
+                $redirectType = 'records';
+            }
+            header("Location: ADMIN_dashboard-page.php?view=" . $redirectType);
+            exit();
+        }
     }
 
-    if (isset($_POST['delete'])) {
-        $deleteId = intval($_POST['id']);
-        if ($_POST['type'] === 'user') {
-            $sql = "DELETE FROM tbluserprofile WHERE userid = ?";
-        } elseif ($_POST['type'] === 'answer') {
-            $sql = "DELETE FROM answers WHERE AnswerID = ?";
-        } elseif ($_POST['type'] === 'question') {
-            $sql = "DELETE FROM tblquestion WHERE QuestionID = ?";
-        }
-        $stmt = $connection->prepare($sql);
-        $stmt->bind_param("i", $deleteId);
-        $stmt->execute();
-        $stmt->close();
-        header("Location: ADMIN_dashboard-page.php?view=" . $_POST['type'] . 's');
-        exit();
+    if (isset($_POST['soft_delete'])) {
+        echo "<script>
+                if (showDeleteConfirmation()) {
+                    document.getElementById('messageBox').style.display = 'block';
+                }
+              </script>";
+
+        
+            $deleteId = intval($_POST['id']);
+            if ($_POST['type'] === 'user') {
+                $profileSql = "UPDATE tbluserprofile SET is_deleted = 1 WHERE userid = ?";
+                $profileStmt = $connection->prepare($profileSql);
+                $profileStmt->bind_param("i", $deleteId);
+                $profileStmt->execute();
+                $profileStmt->close();
+
+                $accountSql = "UPDATE tbluseraccount SET is_deleted = 1 WHERE acctid = ?";
+                $accountStmt = $connection->prepare($accountSql);
+                $accountStmt->bind_param("i", $deleteId);
+                $accountStmt->execute();
+                $accountStmt->close();
+
+                header("Location: ADMIN_dashboard-page.php?view=records");
+                exit();
+            } /* else if ($_POST['type'] === 'answer') {
+                $sql = "UPDATE answers SET is_deleted = 1 WHERE AnswerID = ?";
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param("i", $deleteId);
+                $stmt->execute();
+                $stmt->close();
+                header("Location: ADMIN_dashboard-page.php?view=answers");
+                exit();
+            } */
     }
 }
+
 
 $search = '';
 if (isset($_GET['query'])) {
@@ -125,8 +90,28 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/message-box.css">
     <title>Curious KeyPie - Admin Dashboard</title>
+    <script>
+        function showMessageBox() {
+            document.getElementById('messageBox').style.display = 'block';
+        }
+
+        function hideMessageBox() {
+            document.getElementById('messageBox').style.display = 'none';
+        }
+
+        function showDeleteConfirmation(userId) {
+            document.getElementById('deleteUserId').value = userId;
+            showMessageBox();
+        }
+
+        function confirmUpdate() {
+            return confirm("Are you sure you want to update this record?");
+        }
+    </script>
 </head>
+
 <body>
     <header class="navbar">
         <div class="company-name">Curious KeyPie</div>
@@ -141,22 +126,27 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
 
     <div class="container">
         <nav class="sidebar">
-            <ul>
-                <li><a href="?view=records" class="<?php echo ($view === 'records') ? 'active' : ''; ?>">User Records</a></li>
-                <li><a href="?view=answers" class="<?php echo ($view === 'answers') ? 'active' : ''; ?>">All User Answers</a></li>
-                <li><a href="?view=questions" class="<?php echo ($view === 'questions') ? 'active' : ''; ?>">All User Questions</a></li>
-                <li><a href="?view=female_records" class="<?php echo ($view === 'female_records') ? 'active' : ''; ?>">(Gender) Female Records</a></li>
-                <li><a href="?view=male_records" class="<?php echo ($view === 'male_records') ? 'active' : ''; ?>">(Gender) Male Records</a></li>
-                <li><a href="?view=other_gender_records" class="<?php echo ($view === 'other_gender_records') ? 'active' : ''; ?>">(Gender) Other Records</a></li>
-                <li><a href="?view=QnA_reports" class="<?php echo ($view === 'QnA_reports') ? 'active' : ''; ?>">(1hr) Question and Answer Reports</a></li>
-            </ul>
-        </nav>
-
+                <ul>
+                    <li><a href="?view=records" class="<?php echo ($view === 'records') ? 'active' : ''; ?>">User Records</a></li>
+                    <li><a href="?view=answers" class="<?php echo ($view === 'answers') ? 'active' : ''; ?>">All User Answers</a></li>
+                    <li><a href="?view=questions" class="<?php echo ($view === 'questions') ? 'active' : ''; ?>">All User Questions</a></li>
+                    <li><a href="?view=female_records" class="<?php echo ($view === 'female_records') ? 'active' : ''; ?>">(Gender) Female Records</a></li>
+                    <li><a href="?view=male_records" class="<?php echo ($view === 'male_records') ? 'active' : ''; ?>">(Gender) Male Records</a></li>
+                    <li><a href="?view=other_gender_records" class="<?php echo ($view === 'other_gender_records') ? 'active' : ''; ?>">(Gender) Other Records</a></li>
+                    <li><a href="?view=QnA_reports" class="<?php echo ($view === 'QnA_reports') ? 'active' : ''; ?>">Top Users by Question Submission</a></li>
+                    <li><a href="?view=top_answerers" class="<?php echo ($view === 'top_answerers') ? 'active' : ''; ?>">Top Users by Answer Submission</a></li>
+                    <li><a href="?view=avrg_time" class="<?php echo ($view === 'avrg_time') ? 'active' : ''; ?>">Top Users by Overall Engagement</a></li>
+                    <li><a href="?view=top_questions" class="<?php echo ($view === 'top_questions') ? 'active' : ''; ?>">Top Questions Answered</a></li>
+                    <li><a href="?view=top_questions_by_date" class="<?php echo ($view === 'top_questions_by_date') ? 'active' : ''; ?>">Date with Most Engagement</a></li>
+                  
+                
+                </ul>
+            </nav>
         <div class="content">
             <?php
             if ($view === 'records') {
                 echo "<h2>User Records</h2>";
-                $sql = $search ? "SELECT * FROM tbluserprofile WHERE firstname LIKE '%$search%' OR lastname LIKE '%$search%'" : "SELECT * FROM tbluserprofile";
+                $sql = $search ? "SELECT * FROM tbluserprofile WHERE firstname LIKE '%$search%' OR lastname LIKE '%$search%'" : "SELECT * FROM tbluserprofile WHERE is_deleted = 0";
                 $result = $connection->query($sql);
 
                 if ($result && $result->num_rows > 0) {
@@ -169,19 +159,31 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
                         echo "<td><input type='text' name='lastname' value='" . htmlspecialchars($row["lastname"]) . "'></td>";
                         echo "<td><input type='text' name='gender' value='" . htmlspecialchars($row["gender"]) . "'></td>";
                         echo "<td><input type='date' name='birthdate' value='" . htmlspecialchars($row["birthdate"]) . "'></td>";
-                        echo "<td><button type='submit' name='update'>Update</button>
-                                <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                        echo "<td>
+                                <button type='submit' name='update' onclick='return confirmUpdate()'>Update</button>
+                                <button type='button' name='soft_delete' onclick='showDeleteConfirmation(" . $row['userid'] . ")'>Soft Delete</button>
+                              </td>";
+
                         echo "</form></tr>";
                     }
                     echo "</table>";
-                    
                 } else {
                     echo "<p>No results found.</p>";
                 }
             } elseif ($view === 'answers') {
+                $search = isset($_POST['search']) ? $_POST['search'] : '';
+
                 echo "<h2>All User Answers</h2>";
+                echo "<div style='text-align: right;'>";
+                echo "<form method='POST'>";
+                echo "<label for='search'>Search by Timestamp:</label>";
+                echo "<input type='text' id='search' name='search' value='$search'>";
+                echo "<button type='submit'>Search</button>";
+                echo "</form>";
+                echo "</div>";
+
                 $sql = $search ?
-                    "SELECT a.*, u.firstname, u.lastname FROM answers a JOIN tbluserprofile u ON a.UserID = u.userid WHERE a.UserID LIKE '%$search%' OR a.QuestionID LIKE '%$search%' OR a.AnswerText LIKE '%$search%' OR u.firstname LIKE '%$search%' OR u.lastname LIKE '%$search%'" :
+                    "SELECT a.*, u.firstname, u.lastname FROM answers a JOIN tbluserprofile u ON a.UserID = u.userid WHERE a.Timestamp LIKE '%$search%'" :
                     "SELECT a.*, u.firstname, u.lastname FROM answers a JOIN tbluserprofile u ON a.UserID = u.userid";
                 $result = $connection->query($sql);
 
@@ -195,18 +197,29 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
                         echo "<td><input type='number' name='QuestionID' value='" . htmlspecialchars($row["QuestionID"]) . "'></td>";
                         echo "<td><input type='text' name='AnswerText' value='" . htmlspecialchars($row["AnswerText"]) . "'></td>";
                         echo "<td>" . htmlspecialchars($row["Timestamp"]) . "</td>";
-                        echo "<td><button type='submit' name='update'>Update</button>
-                                <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                        echo "<button type='submit' name='update'>Update</button>";
+                        echo "<button type='button' name='soft_delete' onclick='showDeleteConfirmation(" . $row['AnswerID'] . ")'>Soft Delete</button>";
                         echo "</form></tr>";
                     }
                     echo "</table>";
                 } else {
                     echo "<p>No answers to display.</p>";
                 }
+
             } elseif ($view === 'questions') {
+                $search = isset($_POST['search']) ? $_POST['search'] : '';
+
                 echo "<h2>All User Questions</h2>";
+                echo "<div style='text-align: right;'>";
+                echo "<form method='POST'>";
+                echo "<label for='search'>Search by Timestamp:</label>";
+                echo "<input type='text' id='search' name='search' value='$search'>";
+                echo "<button type='submit'>Search</button>";
+                echo "</form>";
+                echo "</div>";
+
                 $sql = $search ?
-                    "SELECT q.*, u.firstname, u.lastname FROM tblquestion q JOIN tbluserprofile u ON q.UserID = u.userid WHERE q.UserID LIKE '%$search%' OR q.QuestionID LIKE '%$search%' OR q.QuestionText LIKE '%$search%' OR u.firstname LIKE '%$search%' OR u.lastname LIKE '%$search%'" :
+                    "SELECT q.*, u.firstname, u.lastname FROM tblquestion q JOIN tbluserprofile u ON q.UserID = u.userid WHERE q.Timestamp LIKE '%$search%'" :
                     "SELECT q.*, u.firstname, u.lastname FROM tblquestion q JOIN tbluserprofile u ON q.UserID = u.userid";
                 $result = $connection->query($sql);
 
@@ -220,13 +233,15 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
                         echo "<td><input type='text' name='QuestionText' value='" . htmlspecialchars($row["QuestionText"]) . "'></td>";
                         echo "<td>" . htmlspecialchars($row["Timestamp"]) . "</td>";
                         echo "<td><button type='submit' name='update'>Update</button>
-                                <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                              <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
                         echo "</form></tr>";
                     }
                     echo "</table>";
                 } else {
                     echo "<p>No questions to display.</p>";
                 }
+
+
             } else if ($view === 'female_records') {
                   echo "<h2>(Gender) Female User Records</h2>";
                   $sql = $search ? "SELECT * FROM tbluserprofile WHERE (firstname LIKE '%$search%' OR lastname LIKE '%$search%') AND gender = 'Female'" : "SELECT * FROM tbluserprofile WHERE gender = 'Female'";
@@ -234,15 +249,16 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
 
                   if ($result && $result->num_rows > 0) {
                       echo "<table>";
-                      echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Actions</th></tr>";
+                      echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Deleted?</th></tr>";
                       while ($row = $result->fetch_assoc()) {
                           echo "<tr><form method='POST'>";
                           echo "<td>" . htmlspecialchars($row["userid"]) . "<input type='hidden' name='id' value='" . $row["userid"] . "'><input type='hidden' name='type' value='user'></td>";
                           echo "<td><input type='text' name='firstname' value='" . htmlspecialchars($row["firstname"]) . "'></td>";
                           echo "<td><input type='text' name='lastname' value='" . htmlspecialchars($row["lastname"]) . "'></td>";
                           echo "<td><input type='text' name='gender' value='" . htmlspecialchars($row["gender"]) . "' readonly></td>";
-                          echo "<td><button type='submit' name='update'>Update</button>
-                                  <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                          echo "<td>" . htmlspecialchars($row["is_deleted"]) . "</td>";
+                         // echo "<td><button type='submit' name='update'>Update</button>
+                        //          <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
                           echo "</form></tr>";
                       }
                       echo "</table>";
@@ -256,15 +272,16 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
 
                 if ($result && $result->num_rows > 0) {
                     echo "<table>";
-                    echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Actions</th></tr>";
+                    echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Deleted?</th></tr>";
                     while ($row = $result->fetch_assoc()) {
                         echo "<tr><form method='POST'>";
                         echo "<td>" . htmlspecialchars($row["userid"]) . "<input type='hidden' name='id' value='" . $row["userid"] . "'><input type='hidden' name='type' value='user'></td>";
                         echo "<td><input type='text' name='firstname' value='" . htmlspecialchars($row["firstname"]) . "'></td>";
                         echo "<td><input type='text' name='lastname' value='" . htmlspecialchars($row["lastname"]) . "'></td>";
                         echo "<td><input type='text' name='gender' value='" . htmlspecialchars($row["gender"]) . "' readonly></td>";
-                        echo "<td><button type='submit' name='update'>Update</button>
-                                <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                        echo "<td>" . htmlspecialchars($row["is_deleted"]) . "</td>";
+                    //    echo "<td><button type='submit' name='update'>Update</button>
+                     //           <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
                         echo "</form></tr>";
                     }
                     echo "</table>";
@@ -278,51 +295,206 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'records';
 
                   if ($result && $result->num_rows > 0) {
                       echo "<table>";
-                      echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Actions</th></tr>";
+                      echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Deleted?</th></tr>";
                       while ($row = $result->fetch_assoc()) {
                           echo "<tr><form method='POST'>";
                           echo "<td>" . htmlspecialchars($row["userid"]) . "<input type='hidden' name='id' value='" . $row["userid"] . "'><input type='hidden' name='type' value='user'></td>";
                           echo "<td><input type='text' name='firstname' value='" . htmlspecialchars($row["firstname"]) . "'></td>";
                           echo "<td><input type='text' name='lastname' value='" . htmlspecialchars($row["lastname"]) . "'></td>";
                           echo "<td><input type='text' name='gender' value='" . htmlspecialchars($row["gender"]) . "' readonly></td>";
-                          echo "<td><button type='submit' name='update'>Update</button>
-                                  <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
+                          echo "<td>" . htmlspecialchars($row["is_deleted"]) . "</td>";
+                     //    echo "<td><button type='submit' name='update'>Update</button>
+                       //           <button type='submit' name='delete' onclick='return confirm(\"Are you sure?\");'>Delete</button></td>";
                           echo "</form></tr>";
                       }
                       echo "</table>";
                   } else {
                       echo "<p>No male user records found.</p>";
                   }
-              } elseif ($view === 'QnA_reports') {
-                    echo "<h2>Question and Answer Reports (May 4)</h2>";
+ } elseif ($view === 'QnA_reports') {
+     echo "<h2>Top Users by Question Submission</h2>";
 
-                    $startOfDay = date('Y-m-d 00:00:00', strtotime('2024-05-04'));
-                    $endOfDay = date('Y-m-d 23:59:59', strtotime('2024-05-04'));
+     $sql = "SELECT a.UserID, COUNT(a.UserID) AS total_questions
+             FROM answers a
+             LEFT JOIN tblquestion q ON a.QuestionID = q.QuestionID
+             GROUP BY a.UserID
+             ORDER BY total_questions DESC
+             LIMIT 5";
 
-                    $sql = "SELECT COUNT(DISTINCT a.UserID) AS total_users
-                            FROM answers a
-                            LEFT JOIN tblquestion q ON a.QuestionID = q.QuestionID
-                            WHERE (a.Timestamp >= '$startOfDay' AND a.Timestamp <= '$endOfDay')
-                               OR (q.Timestamp >= '$startOfDay' AND q.Timestamp <= '$endOfDay')";
+     $result = $connection->query($sql);
+
+     if ($result) {
+         if ($result->num_rows > 0) {
+             echo "<table>";
+             echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Total Questions</th></tr>";
+             while ($row = $result->fetch_assoc()) {
+                 $userID = $row['UserID'];
+                 $totalQuestions = $row['total_questions'];
 
 
-                    $result = $connection->query($sql);
+                 $userDetailsSql = "SELECT * FROM tbluserprofile WHERE UserID = '$userID'";
+                 $userDetailsResult = $connection->query($userDetailsSql);
+                 $userDetails = $userDetailsResult->fetch_assoc();
 
-                    if ($result) {
-                        if ($result->num_rows > 0) {
-                            $row = $result->fetch_assoc();
-                            $totalUsers = $row['total_users'];
+                 $firstname = $userDetails['firstname'];
+                 $lastname = $userDetails['lastname'];
 
-                            echo "<p>Total users who submitted an answer or question on May 4th: $totalUsers</p>";
-                        } else {
-                            echo "<p>No users submitted answers or questions on May 4th.</p>";
-                        }
-                    } else {
-                        echo "<p>Error retrieving data from the database.</p>";
-                    }
-                }
+                 echo "<tr><td>$userID</td><td>$firstname</td><td>$lastname</td><td>$totalQuestions</td></tr>";
+             }
+             echo "</table>";
+         } else {
+             echo "<p>No users found.</p>";
+         }
+     } else {
+         echo "<p>Error retrieving data from the database.</p>";
+     }
+ } elseif ($view === 'top_answerers') {
+      echo "<h2>Top Users by Answer Submission</h2>";
+
+      $sql = "SELECT a.UserID, COUNT(a.UserID) AS total_answers
+              FROM answers a
+              GROUP BY a.UserID
+              ORDER BY total_answers DESC
+              LIMIT 5";
+
+      $result = $connection->query($sql);
+
+      if ($result) {
+          if ($result->num_rows > 0) {
+              echo "<table>";
+              echo "<tr><th>User ID</th><th>First Name</th><th>Last Name</th><th>Total Answers</th></tr>";
+              while ($row = $result->fetch_assoc()) {
+                  $userID = $row['UserID'];
+                  $totalAnswers = $row['total_answers'];
+
+
+                  $userDetailsSql = "SELECT * FROM tbluserprofile WHERE UserID = '$userID'";
+                  $userDetailsResult = $connection->query($userDetailsSql);
+                  $userDetails = $userDetailsResult->fetch_assoc();
+
+                  $firstname = $userDetails['firstname'];
+                  $lastname = $userDetails['lastname'];
+
+                  echo "<tr><td>$userID</td><td>$firstname</td><td>$lastname</td><td>$totalAnswers</td></tr>";
+              }
+              echo "</table>";
+          } else {
+              echo "<p>No users found.</p>";
+          }
+      } else {
+          echo "<p>Error retrieving data from the database.</p>";
+      }
+  }elseif ($view === 'top_questions') {
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+
+    echo "<h2>Top 5 Questions with Most Answers</h2>";
+    
+
+    $sql = $search ?
+        "SELECT q.QuestionID, q.QuestionText, COUNT(a.QuestionID) AS total_answers
+         FROM tblquestion q
+         LEFT JOIN answers a ON q.QuestionID = a.QuestionID
+         WHERE q.Timestamp LIKE '%$search%'
+         GROUP BY q.QuestionID
+         ORDER BY total_answers DESC
+         LIMIT 5" :
+        "SELECT q.QuestionID, q.QuestionText, COUNT(a.QuestionID) AS total_answers
+         FROM tblquestion q
+         LEFT JOIN answers a ON q.QuestionID = a.QuestionID
+         GROUP BY q.QuestionID
+         ORDER BY total_answers DESC
+         LIMIT 5";
+    $result = $connection->query($sql);
+
+    if ($result && $result->num_rows > 0) {
+        echo "<table>";
+        echo "<tr><th>Question ID</th><th>Question Text</th><th>Total Answers</th></tr>";
+        while ($row = $result->fetch_assoc()) {
+            echo "<tr><form method='POST'>";
+            echo "<td>" . htmlspecialchars($row["QuestionID"]) . "</td>";
+            echo "<td>" . htmlspecialchars($row["QuestionText"]) . "</td>";
+            echo "<td>" . htmlspecialchars($row["total_answers"]) . "</td>";
+            echo "</form></tr>";
+        }
+        echo "</table>";
+    } else {
+        echo "<p>No questions to display.</p>";
+    }
+}elseif ($view === 'top_questions_by_date') {
+    $search = isset($_POST['search']) ? $_POST['search'] : '';
+
+    $topDatesSql = "SELECT DATE_FORMAT(Timestamp, '%Y-%m-%d') AS date, COUNT(*) AS total_questions
+                    FROM tblquestion
+                    GROUP BY DATE_FORMAT(Timestamp, '%Y-%m-%d')
+                    ORDER BY total_questions DESC
+                    LIMIT 5";
+    $topDatesResult = $connection->query($topDatesSql);
+
+    if ($topDatesResult && $topDatesResult->num_rows > 0) {
+        echo "<h2>Top Dates with Most Questions Submitted</h2>";
+        echo "<table>";
+        echo "<tr><th>Date</th><th>Total Questions</th></tr>";
+        while ($row = $topDatesResult->fetch_assoc()) {
+            echo "<tr>";
+            echo "<td>" . htmlspecialchars($row["date"]) . "</td>";
+            echo "<td>" . htmlspecialchars($row["total_questions"]) . "</td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+    } else {
+        echo "<p>No dates with questions submitted.</p>";
+    }
+}elseif ($view === 'avrg_time') {
+  
+    $topUsersSql = "SELECT u.firstname, u.lastname, COUNT(q.QuestionID) AS total_questions, COUNT(a.AnswerID) AS total_answers, COUNT(q.QuestionID) + COUNT(a.AnswerID) AS total_engagement
+                    FROM tbluserprofile u
+                    LEFT JOIN tblquestion q ON u.userid = q.UserID
+                    LEFT JOIN answers a ON u.userid = a.UserID
+                    GROUP BY u.userid
+                    ORDER BY total_engagement DESC
+                    LIMIT 5";
+    $topUsersResult = $connection->query($topUsersSql);
+    echo "<h2>Top Users with Overall Engagement:</h2>";
+    echo "<table>";
+    echo "<tr><th>User</th><th>Total Questions</th><th>Total Answers</th><th>Total Engagement</th></tr>";
+    while ($row = $topUsersResult->fetch_assoc()) {
+        echo "<tr><td>" . htmlspecialchars($row["firstname"]) . " " . htmlspecialchars($row["lastname"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["total_questions"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["total_answers"]) . "</td>";
+        echo "<td>" . htmlspecialchars($row["total_engagement"]) . "</td></tr>";
+    }
+    echo "</table>";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
             ?>
+            <div id="messageBox" class="message-box">
+                <span class="close-btn" onclick="hideMessageBox()">&times;</span>
+                <br>
+                <p>Are you sure you want to delete this record?</p>
+                <form method="POST" id="deleteForm">
+                    <input type="hidden" name="id" id="deleteUserId" value="">
+                    <input type="hidden" name="type" value="user">
+                    <button type="submit" name="soft_delete">Confirm Delete</button>              
+                         <!-- <button type="button" onclick="hideMessageBox()">Cancel</button> -->
+                    
+                </form>
+            </div>
         </div>
     </div>
+
+
+    
 </body>
 </html>
